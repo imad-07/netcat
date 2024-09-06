@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -23,12 +24,15 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	name := ""
-	conn.Write([]byte("Welcome to TCP-Chat!\n"))
-	conn.Write(text)
-
 	var err error
 	count := 0
-	for len(name) == 0 {
+	for len(name) == 0 && len(clients) <= 10{
+		if len(clients) == 10{
+			conn.Write([]byte("Max clients reached\n"))
+			return
+		}
+		conn.Write([]byte("Welcome to TCP-Chat!\n"))
+		conn.Write(text)
 		conn.Write([]byte("[ENTER YOUR NAME]:"))
 		name, err = reader.ReadString('\n')
 		name = strings.TrimSpace(name)
@@ -45,7 +49,7 @@ func handleConnection(conn net.Conn) {
 
 	}
 
-	fmt.Println("Client connected with name:", name)
+	fmt.Println("Client connected with name: ", name)
 
 	mu.Lock()
 	clients[conn] = name // Add client to the map
@@ -56,13 +60,11 @@ func handleConnection(conn net.Conn) {
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Client disconnected:", err)
-
-			// Remove client from the list when disconnected
+			fmt.Println(name +" disconnected:")
+			broadcastMessage(conn, name +" disconnected:")
 			mu.Lock()
 			delete(clients, conn)
 			mu.Unlock()
-
 			break
 		}
 
@@ -71,7 +73,7 @@ func handleConnection(conn net.Conn) {
 		fmt.Println(name + ": " + message)
 		if len(message) != 0 {
 			// Broadcast the message to all clients
-			broadcastMessage(conn, name+": "+message)
+			broadcastMessage(conn, "["+name+"]"+": "+message)
 		}
 	}
 }
@@ -83,7 +85,8 @@ func broadcastMessage(sender net.Conn, message string) {
 
 	for client := range clients {
 		if client != sender {
-			client.Write([]byte(message + "\n"))
+			date := time.Now().Format("2006-01-02 15:04:05")
+			client.Write([]byte("[" + date + "]" + " " + message + "\n"))
 		}
 	}
 }
