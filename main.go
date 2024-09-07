@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,19 @@ var (
 	mu      sync.Mutex                  // Mutex to protect the clients map
 
 )
+
+func broadcasttyping() {
+	date := time.Now().Format("2006-01-02 15:04:05")
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	for client := range clients {
+		// if client != sender {
+		client.Write([]byte("[" + date + "] " + "[" + clients[client] + "]:"))
+		//}
+	}
+}
 
 func handleConnection(conn net.Conn) {
 	text, err1 := os.ReadFile("t.txt")
@@ -27,8 +41,8 @@ func handleConnection(conn net.Conn) {
 	name := ""
 	var err error
 	count := 0
-	for len(name) == 0 && len(clients) <= 10 {
-		if len(clients) == 10 {
+	for len(name) == 0 && len(clients) <= 2 {
+		if len(clients) == 2 {
 			conn.Write([]byte("Max clients reached\n"))
 			return
 		}
@@ -63,10 +77,11 @@ func handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
+
 	conn.Write([]byte(str))
 	for {
-		date := time.Now().Format("2006-01-02 15:04:05")
-		conn.Write([]byte("[" + date + "]" + " "))
+		// date := time.Now().Format("2006-01-02 15:04:05")
+
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println(name + " has left our chat...")
@@ -77,12 +92,13 @@ func handleConnection(conn net.Conn) {
 			break
 		}
 		message = strings.TrimSpace(message)
-
 		fmt.Println(name + ": " + message)
 		if len(message) != 0 {
 			// Broadcast the message to all clients
 			broadcastMessage(conn, "["+name+"]"+": "+message)
 		}
+		broadcasttyping()
+
 	}
 }
 
@@ -94,7 +110,7 @@ func broadcastMessage(sender net.Conn, message string) {
 	defer mu.Unlock()
 	for client := range clients {
 		if client != sender {
-			client.Write([]byte("[" + date + "]" + " " + message + "\n"))
+			client.Write([]byte("\n[" + date + "]" + " " + message + "\n"))
 		}
 	}
 
@@ -116,13 +132,24 @@ func broadcastMessage(sender net.Conn, message string) {
 
 func main() {
 	os.Truncate("l.txt", 0)
-	listener, err := net.Listen("tcp", ":8989")
+	args := os.Args[1:]
+	port := ":8989"
+	if len(args) != 0 {
+		num, err := strconv.Atoi(args[0])
+		if err != nil || len(args[0]) != 4 {
+			fmt.Println("[USAGE]: ./TCPChat $port")
+			return
+		} else {
+			port = ":" + strconv.Itoa(num)
+		}
+	}
+	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 		return
 	}
 	defer listener.Close()
-	fmt.Println("Server is listening on port 8989...")
+	fmt.Printf("Server is listening on port %s...\n",port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
