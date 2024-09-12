@@ -64,14 +64,19 @@ func handleConnection(conn net.Conn) {
 		}
 
 	}
-
+	for _, otherName := range clients {
+		if name == otherName {
+			conn.Write([]byte("User Alredy exist!"))
+			conn.Close()
+			return
+		}
+	}
 	fmt.Println(" has joined our chat...", name)
 	broadcastMessage(conn, "\n"+name+" has joined our chat...")
 
 	mu.Lock()
 	clients[conn] = name // Add client to the map
 	mu.Unlock()
-
 	// Send welcome message
 	conn.Write([]byte("Welcome, " + name + "!\n"))
 	str, err := os.ReadFile("l.txt")
@@ -178,6 +183,7 @@ func isArrowKey(s string) bool {
 		"\x1b[B", // Down arrow
 		"\x1b[C", // Right arrow
 		"\x1b[D", // Left arrow
+		"\x1b[H", // Left arrow
 	}
 	for _, key := range arrowKeys {
 		if strings.Contains(s, key) {
