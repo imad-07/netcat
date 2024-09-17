@@ -114,7 +114,7 @@ func HandleConnection(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	name := ""
 	var err error
-	validity, _ := Namevalidity(name)
+	validity := false
 	Welcome(conn, text)
 	conn.Write(text)
 	conn.Write([]byte("[ENTER YOUR NAME]:"))
@@ -164,7 +164,6 @@ func HandleConnection(conn net.Conn) {
 			break
 		}
 		message = strings.TrimSpace(message)
-		fmt.Println(name + ": " + message)
 		if len(message) != 0 {
 			// Broadcast the message to all clients
 			BroadcastMessage(conn, "["+name+"]"+": "+message)
